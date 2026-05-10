@@ -3,7 +3,7 @@ import Navbar from './Navbar'
 import Footer from './Footer'
 
 // ✅ Your backend URL — change if you deploy later
-const API_URL = 'http://localhost:5000'
+const API_URL = 'https://neurosight-ai-gj77.onrender.com'
 
 export default function SignupPage({ navigate }) {
   const [form, setForm] = useState({ username: '', email: '', password: '', confirm: '' })
