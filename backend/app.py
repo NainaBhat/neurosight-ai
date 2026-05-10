@@ -85,7 +85,7 @@ SUGGESTIONS = {
 # ─────────────────────────────────────────────
 model_vgg = None
 model_effnet = None
-
+import download_models
 def load_models():
     global model_vgg, model_effnet
     try:
