@@ -1,7 +1,7 @@
 # 🧠 NeuroSight AI
 
 **Advanced MRI-Based Brain Tumor Detection**  
-B.Tech Final Year Internship Project | Ensemble of VGG16 & EfficientNetB0
+B.Tech Final Year  Project | Ensemble of VGG16 & EfficientNetB0
 
 > ⚠️ **Research Prototype Only.** Not a medical device. Not a substitute for professional diagnosis.
 
@@ -119,11 +119,7 @@ The app works with **mock predictions** if models are missing (for UI testing).
 Place your video at:
 ```
 frontend/public/videos/brain-tumor-explainer.mp4
-```
 
-It will automatically show in the About section. Supported formats: MP4 (recommended), WebM.
-
----
 
 ## ☁️ Deployment
 
