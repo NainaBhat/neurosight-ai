@@ -192,5 +192,5 @@ Returns server status and model loading state.
 
 ## 👩‍💻 Developer
 
-**Naina Bhat** — B.Tech Final Year  
+**Naina Bhat** — 
 [GitHub](https://github.com/nainabhat) · [LinkedIn](https://linkedin.com/in/nainabhat)
