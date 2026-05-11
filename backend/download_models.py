@@ -2,10 +2,9 @@ import os
 import gdown
 
 os.makedirs("models", exist_ok=True)
-
 models = {
-    "efficientnetv2_model.keras": "1_jS8akRhkfFq7cu88NicRaw4mR9vOele ",
-    "brain_tumor_detection_vgg16.keras": "17Yk_w75waeVzv7Sr7qvgeNDlYOd6B_Lh"
+    "efficientnetv2_model.keras": "1_jS8akRhkfFq7cu88NicRaw4mR9vOele",  # ← NO SPACE!
+    "brain_tumor_detection_vgg16.keras": "17Yk_w75waeVzv7Sr7qvgeNDlYOd6B_Lh"  # ← NO SPACE!
 }
 
 for filename, file_id in models.items():
@@ -14,4 +13,4 @@ for filename, file_id in models.items():
         print(f"Downloading {filename}...")
         gdown.download(f"https://drive.google.com/uc?id={file_id}", output, quiet=False)
 
-print("All models downloaded!")
+print("✅ All models downloaded!")
