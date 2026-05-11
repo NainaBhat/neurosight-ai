@@ -189,8 +189,3 @@ Returns server status and model loading state.
 | Deployment | Vercel (frontend), Render (backend) |
 
 ---
-
-## 👩‍💻 Developer
-
-**Naina Bhat** — 
-[GitHub](https://github.com/nainabhat) · [LinkedIn](https://linkedin.com/in/nainabhat)
