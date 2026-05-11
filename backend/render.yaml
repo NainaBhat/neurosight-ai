@@ -1,13 +1,15 @@
 services:
   - type: web
-    name: neurosight-ai-backend
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
+    name: neurosight-ai
+    runtime: node
+    plan: free
+    buildCommand: |
+      python3.11 -m venv venv
+      . venv/bin/activate
+      pip install -r requirements.txt
+      npm install
+      python3.11 download_models.py
+    startCommand: node server.js
     envVars:
-      - key: FLASK_ENV
+      - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
-        sync: false
-      - key: CORS_ORIGINS
-        sync: false
