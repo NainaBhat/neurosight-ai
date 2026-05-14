@@ -1,9 +1,10 @@
 flask==3.0.3
 flask-cors==4.0.1
 numpy==1.26.4
-Pillow==10.3.0
+Pillow==11.0.0
 opencv-python-headless==4.9.0.80
 pymongo==4.7.2
 python-dotenv==1.0.1
 gunicorn==22.0.0
-gdown
+gdown>=5.1.0
+tensorflow==2.15.0
