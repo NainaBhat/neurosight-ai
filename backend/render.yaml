@@ -4,12 +4,14 @@ services:
     runtime: node
     plan: free
     buildCommand: |
-      python3.11 -m venv venv
-      . venv/bin/activate
-      pip install -r requirements.txt
-      npm install
-      python3.11 download_models.py
+     npm install
+     pip install -r requirements.txt
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
+       - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+```
