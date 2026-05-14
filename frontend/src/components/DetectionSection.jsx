@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 
-const API_URL = import.meta.env.VITE_API_URL || ''
+const API_URL = import.meta.env.VITE_API_URL || 'https://neurosight-ai-gj77.onrender.com'
 
 const CLASS_COLORS = {
   glioma:     '#ef4444',
