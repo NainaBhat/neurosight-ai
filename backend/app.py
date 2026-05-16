@@ -1,18 +1,3 @@
-"""
-NeuroSight AI - Backend Flask API
-Ensemble model: VGG16 + EfficientNetB0 for brain MRI tumor classification
-
-CRITICAL FIX: Each model uses its CORRECT preprocessing:
-- VGG16: simple division by 255.0
-- EfficientNetB0: tensorflow.keras.applications.efficientnet.preprocess_input()
-
-SETUP INSTRUCTIONS:
-1. Place your model files in the models/ directory:
-   - models/brain_tumor_detection_vgg16.keras (trained on 64x64, / 255.0)
-   - models/brain_tumor_detection_efficientnetb0.keras (trained on 224x224, preprocess_input)
-2. Set environment variables (see .env.example)
-3. Run: python app.py
-"""
 
 import os
 import io
@@ -85,30 +70,54 @@ SUGGESTIONS = {
 # ─────────────────────────────────────────────
 model_vgg = None
 model_effnet = None
-import download_models
+
 def load_models():
     global model_vgg, model_effnet
     try:
         import tensorflow as tf
+        
+        # VGG16 - Load from .keras file
         vgg_path = os.getenv("VGG16_MODEL_PATH", "models/brain_tumor_detection_vgg16.keras")
-        eff_path = os.getenv("EFFNET_MODEL_PATH", "models/brain_tumor_detection_efficientnetb0.keras")
-
+        
         if os.path.exists(vgg_path):
-            logger.info(f"Loading VGG16 model from {vgg_path}...")
-            model_vgg = tf.keras.models.load_model(vgg_path)
-            logger.info("✅ VGG16 model loaded successfully (expects 64x64 input, / 255.0 normalization).")
+            logger.info(f"Loading VGG16 from {vgg_path}...")
+            try:
+                model_vgg = tf.keras.models.load_model(vgg_path)
+                logger.info("✅ VGG16 loaded (64x64 input, /255.0 norm)")
+            except Exception as e:
+                logger.error(f"Failed to load VGG16: {e}")
+                model_vgg = None
         else:
-            logger.warning(f"⚠️  VGG16 model not found at {vgg_path}. Using fallback.")
+            logger.error(f"❌ VGG16 file NOT found: {vgg_path}")
+            logger.error(f"   Directory contents: {os.listdir('models') if os.path.exists('models') else 'models/ does not exist'}")
+            model_vgg = None
 
-        if os.path.exists(eff_path):
-            logger.info(f"Loading EfficientNetB0 model from {eff_path}...")
-            model_effnet = tf.keras.models.load_model(eff_path)
-            logger.info("✅ EfficientNetB0 model loaded successfully (expects 224x224 input, preprocess_input normalization).")
+        # EfficientNetB0 - Load from FOLDER (saved_model format)
+        effnet_path = os.getenv("EFFNET_MODEL_PATH", "models/brain_tumor_detection_efficientnetb0")
+        
+        if os.path.exists(effnet_path):
+            logger.info(f"Loading EfficientNetB0 from {effnet_path}...")
+            try:
+                # For folder-based models, tf.keras.models.load_model() handles it
+                model_effnet = tf.keras.models.load_model(effnet_path)
+                logger.info("✅ EfficientNetB0 loaded (224x224 input, preprocess_input)")
+            except Exception as e:
+                logger.error(f"Failed to load EfficientNetB0: {e}")
+                model_effnet = None
         else:
-            logger.warning(f"⚠️  EfficientNetB0 model not found at {eff_path}. Using fallback.")
+            logger.error(f"❌ EfficientNetB0 folder NOT found: {effnet_path}")
+            logger.error(f"   Directory contents: {os.listdir('models') if os.path.exists('models') else 'models/ does not exist'}")
+            model_effnet = None
+            
+        # Log summary
+        logger.info(f"Model Status:")
+        logger.info(f"  VGG16: {'🟢 LOADED' if model_vgg else '🔴 FAILED'}")
+        logger.info(f"  EfficientNetB0: {'🟢 LOADED' if model_effnet else '🔴 FAILED'}")
 
     except Exception as e:
-        logger.error(f"Error loading models: {e}")
+        logger.error(f"Critical error in load_models(): {e}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 # ─────────────────────────────────────────────
 # Image preprocessing - DIFFERENT for each model
