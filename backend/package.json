@@ -2,7 +2,7 @@
   "name": "neurosight-ai",
   "version": "1.0.0",
   "description": "**Advanced MRI-Based Brain Tumor Detection**   Ensemble of VGG16 & EfficientNetB0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
