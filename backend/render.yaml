@@ -3,7 +3,12 @@ services:
     name: neurosight-ai
     runtime: node
     plan: free
-    buildCommand: npm install
+    env: node
+    region: oregon
+    buildCommand: >
+      npm install &&
+      pip install --upgrade pip &&
+      pip install -r requirements.txt
     startCommand: node server.js
     envVars:
        - key: MONGO_URI
@@ -16,4 +21,9 @@ services:
         value: production
       - key: PORT
         value: "3000"
-```
+      - key: FLASK_ENV
+        value: "production
+
+
+
+
