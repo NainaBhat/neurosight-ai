@@ -1,7 +1,7 @@
 {
   "name": "neurosight-ai",
   "version": "1.0.0",
-  "description": "**Advanced MRI-Based Brain Tumor Detection**   B.Tech Final Year Internship Project | Ensemble of VGG16 & EfficientNetB0",
+  "description": "**Advanced MRI-Based Brain Tumor Detection**   Ensemble of VGG16 & EfficientNetB0",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
