@@ -8,6 +8,16 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
 
+# ⭐ CRITICAL: Import TensorFlow at module level to catch errors early
+try:
+    import tensorflow as tf
+    TF_AVAILABLE = True
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.error(f"❌ TensorFlow import failed: {e}")
+    TF_AVAILABLE = False
+    tf = None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,11 +83,19 @@ model_effnet = None
 
 def load_models():
     global model_vgg, model_effnet
+    
+    if not TF_AVAILABLE:
+        logger.error("❌ TensorFlow not available. Models cannot load.")
+        return
+    
     try:
-        import tensorflow as tf
+        # Ensure models directory exists
+        models_dir = os.path.abspath(os.getenv("MODELS_DIR", os.path.join(os.getcwd(), "models")))
+        os.makedirs(models_dir, exist_ok=True)
+        logger.info(f"Models directory: {models_dir}")
         
         # VGG16 - Load from .keras file
-        vgg_path = os.getenv("VGG16_MODEL_PATH", "models/brain_tumor_detection_vgg16.keras")
+        vgg_path = os.getenv("VGG16_MODEL_PATH", os.path.join(models_dir, "brain_tumor_detection_vgg16.keras"))
         
         if os.path.exists(vgg_path):
             logger.info(f"Loading VGG16 from {vgg_path}...")
@@ -86,14 +104,19 @@ def load_models():
                 logger.info("✅ VGG16 loaded (64x64 input, /255.0 norm)")
             except Exception as e:
                 logger.error(f"Failed to load VGG16: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 model_vgg = None
         else:
             logger.error(f"❌ VGG16 file NOT found: {vgg_path}")
-            logger.error(f"   Directory contents: {os.listdir('models') if os.path.exists('models') else 'models/ does not exist'}")
+            if os.path.exists(models_dir):
+                logger.error(f"   Directory contents: {os.listdir(models_dir)}")
+            else:
+                logger.error(f"   Directory does not exist: {models_dir}")
             model_vgg = None
 
         # EfficientNetB0 - Load from FOLDER (saved_model format)
-        effnet_path = os.getenv("EFFNET_MODEL_PATH", "models/brain_tumor_detection_efficientnetb0")
+        effnet_path = os.getenv("EFFNET_MODEL_PATH", os.path.join(models_dir, "brain_tumor_detection_efficientnetb0"))
         
         if os.path.exists(effnet_path):
             logger.info(f"Loading EfficientNetB0 from {effnet_path}...")
@@ -103,10 +126,15 @@ def load_models():
                 logger.info("✅ EfficientNetB0 loaded (224x224 input, preprocess_input)")
             except Exception as e:
                 logger.error(f"Failed to load EfficientNetB0: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 model_effnet = None
         else:
             logger.error(f"❌ EfficientNetB0 folder NOT found: {effnet_path}")
-            logger.error(f"   Directory contents: {os.listdir('models') if os.path.exists('models') else 'models/ does not exist'}")
+            if os.path.exists(models_dir):
+                logger.error(f"   Directory contents: {os.listdir(models_dir)}")
+            else:
+                logger.error(f"   Directory does not exist: {models_dir}")
             model_effnet = None
             
         # Log summary
@@ -243,6 +271,20 @@ def health():
         }
     })
 
+@app.route("/status", methods=["GET"])
+def status():
+    """
+    Detailed status endpoint - frontend should call this FIRST.
+    Returns detailed model loading status.
+    """
+    return jsonify({
+        "tensorflow_available": TF_AVAILABLE,
+        "vgg16_loaded": model_vgg is not None,
+        "efficientnetb0_loaded": model_effnet is not None,
+        "ready": TF_AVAILABLE and (model_vgg is not None or model_effnet is not None),
+        "version": MODEL_VERSION,
+    })
+
 @app.route("/predict", methods=["POST"])
 def predict():
     if "file" not in request.files:
@@ -258,6 +300,19 @@ def predict():
         return jsonify({"error": f"Unsupported file type '{file.content_type}'. Use JPG or PNG."}), 400
 
     try:
+        # Check if models are loaded before attempting prediction
+        if not TF_AVAILABLE:
+            return jsonify({
+                "error": "TensorFlow is not available. Backend initialization failed.",
+                "type": "InitializationError"
+            }), 500
+        
+        if model_vgg is None and model_effnet is None:
+            return jsonify({
+                "error": "No models loaded. Check backend logs for model loading errors.",
+                "type": "ModelLoadError"
+            }), 500
+        
         image_bytes = file.read()
         
         # Run ensemble with CORRECT preprocessing for each model
@@ -284,8 +339,16 @@ def predict():
         })
 
     except Exception as e:
+        import traceback
         logger.error(f"Prediction error: {e}")
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+        logger.error(traceback.format_exc())
+        
+        # Return proper JSON error, not HTML
+        return jsonify({
+            "error": f"Prediction failed: {str(e)}",
+            "type": type(e).__name__,
+            "details": str(e)
+        }), 500
 
 
 if __name__ == "__main__":
@@ -293,6 +356,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     debug = os.getenv("FLASK_ENV", "production") == "development"
     logger.info(f"🧠 NeuroSight AI backend starting on port {port}...")
+    logger.info(f"📊 TensorFlow available: {TF_AVAILABLE}")
     logger.info(f"📊 VGG16: {VGG16_IMG_SIZE} input, / 255.0 normalization")
     logger.info(f"📊 EfficientNetB0: {EFFICIENTNET_IMG_SIZE} input, preprocess_input()")
     app.run(host="0.0.0.0", port=port, debug=debug)
