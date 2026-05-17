@@ -8,8 +8,8 @@ services:
     buildCommand: >
       npm install &&
       pip install --upgrade pip &&
-      pip install -r src/backend/requirements.txt
-    startCommand: node src/backend/server.js
+      pip install -r backend/requirements.txt
+    startCommand: node backend/server.js
     envVars:
       - key: MONGO_URI
         sync: false
