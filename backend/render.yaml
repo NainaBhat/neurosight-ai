@@ -8,22 +8,23 @@ services:
     buildCommand: >
       npm install &&
       pip install --upgrade pip &&
-      pip install -r requirements.txt
-    startCommand: node server.js
+      pip install -r src/backend/requirements.txt
+    startCommand: node src/backend/server.js
     envVars:
-       - key: MONGO_URI
+      - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
         sync: false
-       - key: CORS_ORIGINS
+      - key: CORS_ORIGINS
         value: https://neurosight-ai.vercel.app
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "3000"
       - key: FLASK_ENV
-        value: "production
-
+        value: "production"
+      - key: VITE_API_URL
+        value: https://neurosight-ai-gj77.onrender.com
 
 
 
