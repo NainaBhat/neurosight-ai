@@ -7,7 +7,6 @@ services:
     region: oregon
     buildCommand: npm install && pip install -r backend/requirements.txt
     startCommand: node backend/server.js
-    startCommand: node backend/server.js
     envVars:
       - key: MONGO_URI
         sync: false
