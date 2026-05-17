@@ -5,10 +5,8 @@ services:
     plan: free
     env: node
     region: oregon
-    buildCommand: >
-      npm install &&
-      pip install --upgrade pip &&
-      pip install -r backend/requirements.txt
+    buildCommand: npm install && pip install -r backend/requirements.txt
+    startCommand: node backend/server.js
     startCommand: node backend/server.js
     envVars:
       - key: MONGO_URI
