@@ -2,11 +2,11 @@ services:
   - type: web
     name: neurosight-ai
     runtime: node
-    plan: free
+    plan: standard
     env: node
     region: oregon
-    buildCommand: npm install && pip install -r requirements.txt
-    startCommand: node backend/server.js
+    buildCommand: npm install && pip install -r requirements.txt && python download_models.py
+    startCommand: node server.js
     envVars:
       - key: MONGO_URI
         sync: false
@@ -19,9 +19,19 @@ services:
       - key: PORT
         value: "3000"
       - key: FLASK_ENV
-        value: "production"
+        value: production
+      - key: FLASK_PORT
+        value: "5000"
       - key: VITE_API_URL
         value: https://neurosight-ai-gj77.onrender.com
+      - key: MODELS_DIR
+        value: /tmp/models
+      - key: MODEL_LOAD_TIMEOUT
+        value: "180"
+      - key: VGG16_MODEL_PATH
+        value: /tmp/models/brain_tumor_detection_vgg16.keras
+      - key: EFFNET_MODEL_PATH
+        value: /tmp/models/brain_tumor_detection_efficientnetb0
 
 
 
