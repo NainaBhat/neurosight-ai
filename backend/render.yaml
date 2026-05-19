@@ -5,8 +5,8 @@ services:
     plan: free
     region: oregon
     
-    buildCommand: npm install --prefix backend && pip install -r backend/requirements.txt
-    startCommand: cd backend && node server.js
+    buildCommand: npm install && pip install -r requirements.txt
+    startCommand: node server.js
     
     envVars:
       - key: MONGO_URI
