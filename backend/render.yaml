@@ -4,6 +4,7 @@ services:
     runtime: node
     plan: free
     region: oregon
+    pythonVersion: 3.11
     
     buildCommand: npm install && pip install -r requirements.txt
     startCommand: node server.js
