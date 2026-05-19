@@ -1,4 +1,14 @@
-
+"""
+Flask backend for MRI brain tumor detection.
+Ensemble model: VGG16 + EfficientNetB0
+ 
+Key fixes:
+- Absolute path handling for models
+- Robust error handling and logging
+- Proper preprocessing for each model
+- MongoDB logging support
+"""
+ 
 import os
 import io
 import logging
@@ -7,44 +17,53 @@ from datetime import datetime, timezone
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
-
-# ⭐ CRITICAL: Import TensorFlow at module level to catch errors early
+ 
+# ─── TensorFlow Import ───────────────────────────────────────────────────────
+ 
 try:
     import tensorflow as tf
     TF_AVAILABLE = True
 except ImportError as e:
-    logger = logging.getLogger(__name__)
-    logger.error(f"❌ TensorFlow import failed: {e}")
     TF_AVAILABLE = False
     tf = None
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+ 
+# ─── Logging Setup ───────────────────────────────────────────────────────────
+ 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
 logger = logging.getLogger(__name__)
-
+ 
+if not TF_AVAILABLE:
+    logger.error("❌ TensorFlow import FAILED. Models cannot be loaded.")
+else:
+    logger.info(f"✅ TensorFlow {tf.__version__} available")
+ 
+# ─── Flask App Setup ───────────────────────────────────────────────────────
+ 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": os.getenv("CORS_ORIGINS", "*")}})
-
-# ─────────────────────────────────────────────
-# Configuration
-# ─────────────────────────────────────────────
+cors_origins = os.getenv("CORS_ORIGINS", "*")
+CORS(app, resources={r"/*": {"origins": cors_origins}})
+ 
+logger.info(f"CORS enabled for: {cors_origins}")
+ 
+# ─── Model Configuration ───────────────────────────────────────────────────
+ 
 CLASS_NAMES = ["glioma", "meningioma", "notumor", "pituitary"]
 CLASS_LABELS = {
-    "glioma":     "Glioma",
+    "glioma": "Glioma",
     "meningioma": "Meningioma",
-    "notumor":    "No Tumor",
-    "pituitary":  "Pituitary Tumor",
+    "notumor": "No Tumor",
+    "pituitary": "Pituitary Tumor",
 }
-
-# CRITICAL: Each model has different input sizes!
+ 
+# CRITICAL: Different input sizes for each model!
 VGG16_IMG_SIZE = (64, 64)
 EFFICIENTNET_IMG_SIZE = (224, 224)
-
+ 
 MODEL_VERSION = "vgg16+efficientnetb0-ensemble-v1"
-
-# ─────────────────────────────────────────────
-# Suggestion templates
-# ─────────────────────────────────────────────
+ 
 SUGGESTIONS = {
     "glioma": (
         "⚠️ The model detects patterns consistent with a Glioma — a type of tumor "
@@ -74,173 +93,178 @@ SUGGESTIONS = {
         "This is NOT a medical diagnosis."
     ),
 }
-
-# ─────────────────────────────────────────────
-# Load models at startup
-# ─────────────────────────────────────────────
+ 
+# ─── Global Model Variables ────────────────────────────────────────────────
+ 
 model_vgg = None
 model_effnet = None
-
+ 
+# ─── Model Loading Function ──────────────────────────────────────────────────
+ 
 def load_models():
+    """
+    Load both VGG16 and EfficientNetB0 models from disk.
+    Uses absolute paths to work in containerized environments.
+    """
     global model_vgg, model_effnet
-    
+ 
     if not TF_AVAILABLE:
-        logger.error("❌ TensorFlow not available. Models cannot load.")
+        logger.error("❌ TensorFlow not available. Models cannot be loaded.")
         return
-    
+ 
     try:
-        # Ensure models directory exists
-        models_dir = os.path.abspath(os.getenv("MODELS_DIR", os.path.join(os.getcwd(), "models")))
+        # CRITICAL: Use absolute path
+        models_dir = os.path.abspath(
+            os.getenv("MODELS_DIR", 
+                      os.path.join(os.path.dirname(__file__), "models"))
+        )
         os.makedirs(models_dir, exist_ok=True)
-        logger.info(f"Models directory: {models_dir}")
-        
-        # VGG16 - Load from .keras file
-        vgg_path = os.getenv("VGG16_MODEL_PATH", os.path.join(models_dir, "brain_tumor_detection_vgg16.keras"))
-        
+        logger.info(f"📂 Models directory: {models_dir}")
+ 
+        # ─── VGG16 Loading ───
+ 
+        vgg_path = os.path.join(models_dir, "brain_tumor_detection_vgg16.keras")
+ 
         if os.path.exists(vgg_path):
-            logger.info(f"Loading VGG16 from {vgg_path}...")
             try:
+                logger.info(f"📥 Loading VGG16 from {vgg_path}...")
                 model_vgg = tf.keras.models.load_model(vgg_path)
-                logger.info("✅ VGG16 loaded (64x64 input, /255.0 norm)")
+                logger.info("✅ VGG16 loaded successfully")
+                logger.info(f"   Input: {VGG16_IMG_SIZE}, Normalization: /255.0")
             except Exception as e:
-                logger.error(f"Failed to load VGG16: {e}")
+                logger.error(f"❌ Failed to load VGG16: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
                 model_vgg = None
         else:
-            logger.error(f"❌ VGG16 file NOT found: {vgg_path}")
+            logger.error(f"❌ VGG16 file not found: {vgg_path}")
             if os.path.exists(models_dir):
                 logger.error(f"   Directory contents: {os.listdir(models_dir)}")
-            else:
-                logger.error(f"   Directory does not exist: {models_dir}")
             model_vgg = None
-
-        # EfficientNetB0 - Load from FOLDER (saved_model format)
-        effnet_path = os.getenv("EFFNET_MODEL_PATH", os.path.join(models_dir, "brain_tumor_detection_efficientnetb0"))
-        
+ 
+        # ─── EfficientNetB0 Loading ───
+ 
+        effnet_path = os.path.join(models_dir, "brain_tumor_detection_efficientnetb0")
+ 
         if os.path.exists(effnet_path):
-            logger.info(f"Loading EfficientNetB0 from {effnet_path}...")
             try:
-                # For folder-based models, tf.keras.models.load_model() handles it
+                logger.info(f"📥 Loading EfficientNetB0 from {effnet_path}...")
                 model_effnet = tf.keras.models.load_model(effnet_path)
-                logger.info("✅ EfficientNetB0 loaded (224x224 input, preprocess_input)")
+                logger.info("✅ EfficientNetB0 loaded successfully")
+                logger.info(f"   Input: {EFFICIENTNET_IMG_SIZE}, Normalization: preprocess_input")
             except Exception as e:
-                logger.error(f"Failed to load EfficientNetB0: {e}")
+                logger.error(f"❌ Failed to load EfficientNetB0: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
                 model_effnet = None
         else:
-            logger.error(f"❌ EfficientNetB0 folder NOT found: {effnet_path}")
+            logger.error(f"❌ EfficientNetB0 folder not found: {effnet_path}")
             if os.path.exists(models_dir):
                 logger.error(f"   Directory contents: {os.listdir(models_dir)}")
-            else:
-                logger.error(f"   Directory does not exist: {models_dir}")
             model_effnet = None
-            
-        # Log summary
-        logger.info(f"Model Status:")
-        logger.info(f"  VGG16: {'🟢 LOADED' if model_vgg else '🔴 FAILED'}")
+ 
+        # ─── Summary ───
+ 
+        logger.info("=" * 60)
+        logger.info("Model Loading Summary:")
+        logger.info(f"  VGG16:         {'🟢 LOADED' if model_vgg else '🔴 FAILED'}")
         logger.info(f"  EfficientNetB0: {'🟢 LOADED' if model_effnet else '🔴 FAILED'}")
-
+        logger.info(f"  Ready to predict: {'YES' if (model_vgg or model_effnet) else 'NO'}")
+        logger.info("=" * 60)
+ 
     except Exception as e:
-        logger.error(f"Critical error in load_models(): {e}")
+        logger.error(f"❌ Critical error in load_models(): {e}")
         import traceback
         logger.error(traceback.format_exc())
-
-# ─────────────────────────────────────────────
-# Image preprocessing - DIFFERENT for each model
-# ─────────────────────────────────────────────
-
+ 
+# ─── Image Preprocessing ──────────────────────────────────────────────────────
+ 
 def preprocess_image_for_vgg16(image_bytes):
     """
-    Preprocess image for VGG16 (expects 64x64, simple / 255.0).
-    This matches the training preprocessing exactly.
+    Preprocess for VGG16: 64x64, /255.0 normalization.
+    CRITICAL: Must match training preprocessing exactly!
     """
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     img = img.resize(VGG16_IMG_SIZE, Image.LANCZOS)
-    img_array = np.array(img, dtype=np.float32) / 255.0  # Simple normalization
+    img_array = np.array(img, dtype=np.float32) / 255.0
     img_array = np.expand_dims(img_array, axis=0)  # (1, 64, 64, 3)
     return img_array
-
+ 
 def preprocess_image_for_efficientnet(image_bytes):
     """
-    Preprocess image for EfficientNetB0 (expects 224x224, preprocess_input).
-    CRITICAL: Must use tensorflow.keras.applications.efficientnet.preprocess_input
-    to match training preprocessing!
+    Preprocess for EfficientNetB0: 224x224, preprocess_input() normalization.
+    CRITICAL: Must use preprocess_input() for correct scaling!
     """
     try:
         from tensorflow.keras.applications.efficientnet import preprocess_input
     except ImportError:
-        logger.error("Could not import preprocess_input from efficientnet!")
-        # Fallback to simple normalization if import fails
+        logger.error("❌ Could not import preprocess_input")
+        # Fallback
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         img = img.resize(EFFICIENTNET_IMG_SIZE, Image.LANCZOS)
         img_array = np.array(img, dtype=np.float32) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         return img_array
-    
+ 
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     img = img.resize(EFFICIENTNET_IMG_SIZE, Image.LANCZOS)
-    img_array = np.array(img, dtype=np.float32)  # Keep original scale
+    img_array = np.array(img, dtype=np.float32)
     img_array = np.expand_dims(img_array, axis=0)  # (1, 224, 224, 3)
-    img_array = preprocess_input(img_array)  # ← CRITICAL: Use preprocess_input!
+    img_array = preprocess_input(img_array)  # CRITICAL!
     return img_array
-
-def mock_predict():
-    """Return plausible random probabilities when models are not loaded."""
-    probs = np.random.dirichlet(np.ones(4)).tolist()
-    return probs
-
+ 
+# ─── Ensemble Prediction ──────────────────────────────────────────────────────
+ 
 def run_ensemble(image_bytes):
     """
-    Run both models with their CORRECT preprocessing and average predictions.
-    
-    CRITICAL: Each model gets its correctly-preprocessed input!
-    - VGG16 with 64x64 and / 255.0
-    - EfficientNetB0 with 224x224 and preprocess_input()
+    Run both models with their correct preprocessing and average results.
+    Falls back gracefully if one model fails.
     """
     probs_list = []
-    
-    # VGG16 with 64x64 input and simple normalization
+ 
+    # ─── VGG16 ───
     if model_vgg is not None:
         try:
             img_array_vgg = preprocess_image_for_vgg16(image_bytes)
             p1 = model_vgg.predict(img_array_vgg, verbose=0)
             probs_list.append(p1[0])
-            logger.info(f"✅ VGG16 prediction: {p1[0]}")
+            logger.info(f"✅ VGG16: {p1[0]}")
         except Exception as e:
-            logger.warning(f"VGG16 prediction failed: {e}")
-    
-    # EfficientNetB0 with 224x224 input and preprocess_input normalization
+            logger.warning(f"⚠️  VGG16 prediction failed: {e}")
+ 
+    # ─── EfficientNetB0 ───
     if model_effnet is not None:
         try:
             img_array_eff = preprocess_image_for_efficientnet(image_bytes)
             p2 = model_effnet.predict(img_array_eff, verbose=0)
             probs_list.append(p2[0])
-            logger.info(f"✅ EfficientNetB0 prediction: {p2[0]}")
+            logger.info(f"✅ EfficientNetB0: {p2[0]}")
         except Exception as e:
-            logger.warning(f"EfficientNetB0 prediction failed: {e}")
-    
-    # Average predictions from available models
+            logger.warning(f"⚠️  EfficientNetB0 prediction failed: {e}")
+ 
+    # ─── Average ───
     if len(probs_list) > 0:
         p_ensemble = np.mean(probs_list, axis=0)
-        logger.info(f"✅ ENSEMBLE average: {p_ensemble}")
+        logger.info(f"✅ Ensemble average: {p_ensemble}")
         return p_ensemble.tolist()
     else:
-        logger.warning("No models available — returning mock predictions.")
-        return mock_predict()
-
-# ─────────────────────────────────────────────
-# MongoDB logging (optional)
-# ─────────────────────────────────────────────
+        logger.warning("❌ No models available for prediction!")
+        # Return mock data (should not happen in production)
+        return [0.25, 0.25, 0.25, 0.25]
+ 
+# ─── MongoDB Logging ──────────────────────────────────────────────────────────
+ 
 def log_to_mongodb(prediction, probabilities, filename, client_ip):
+    """Log prediction to MongoDB (non-blocking)."""
     try:
-        mongo_uri = os.getenv("MONGODB_URI")
+        mongo_uri = os.getenv("MONGODB_URI") or os.getenv("MONGO_URI")
         if not mongo_uri:
             return
+ 
         from pymongo import MongoClient
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=3000)
         db = client[os.getenv("MONGODB_DB", "neurosight")]
+        
         db.predictions.insert_one({
             "prediction": prediction,
             "probabilities": probabilities,
@@ -249,15 +273,18 @@ def log_to_mongodb(prediction, probabilities, filename, client_ip):
             "modelVersion": MODEL_VERSION,
             "createdAt": datetime.now(timezone.utc),
         })
-        logger.info("✅ Prediction logged to MongoDB.")
+        logger.info("✅ Logged to MongoDB")
     except Exception as e:
-        logger.warning(f"MongoDB logging failed (non-critical): {e}")
-
-# ─────────────────────────────────────────────
-# Routes
-# ─────────────────────────────────────────────
+        logger.warning(f"⚠️  MongoDB logging failed (non-critical): {e}")
+ 
+# ─── Flask Routes ─────────────────────────────────────────────────────────────
+ 
 @app.route("/health", methods=["GET"])
 def health():
+    """
+    Health check endpoint.
+    Returns model loading status.
+    """
     return jsonify({
         "status": "ok",
         "models_loaded": {
@@ -266,16 +293,16 @@ def health():
         },
         "version": MODEL_VERSION,
         "preprocessing": {
-            "vgg16": "64x64 input, / 255.0 normalization",
-            "efficientnetb0": "224x224 input, preprocess_input()"
+            "vgg16": "64x64, /255.0",
+            "efficientnetb0": "224x224, preprocess_input()"
         }
     })
-
+ 
 @app.route("/status", methods=["GET"])
 def status():
     """
-    Detailed status endpoint - frontend should call this FIRST.
-    Returns detailed model loading status.
+    Detailed status endpoint.
+    Frontend should call this first to check readiness.
     """
     return jsonify({
         "tensorflow_available": TF_AVAILABLE,
@@ -284,79 +311,121 @@ def status():
         "ready": TF_AVAILABLE and (model_vgg is not None or model_effnet is not None),
         "version": MODEL_VERSION,
     })
-
+ 
 @app.route("/predict", methods=["POST"])
 def predict():
+    """
+    MRI prediction endpoint.
+    Accepts multipart form-data with 'file' field.
+    Returns JSON with prediction, confidence, probabilities.
+    """
     if "file" not in request.files:
-        return jsonify({"error": "No file provided. Send a file with field name 'file'."}), 400
-
+        logger.warning("❌ No file in request")
+        return jsonify({"error": "No file provided. Use field name 'file'."}), 400
+ 
     file = request.files["file"]
     if file.filename == "":
+        logger.warning("❌ Empty filename")
         return jsonify({"error": "Empty filename."}), 400
-
-    # Validate image type
+ 
+    # Validate file type
     allowed_types = {"image/jpeg", "image/png", "image/jpg", "image/webp"}
     if file.content_type not in allowed_types:
-        return jsonify({"error": f"Unsupported file type '{file.content_type}'. Use JPG or PNG."}), 400
-
+        logger.warning(f"❌ Invalid file type: {file.content_type}")
+        return jsonify({
+            "error": f"Unsupported file type '{file.content_type}'. Use JPG or PNG."
+        }), 400
+ 
     try:
-        # Check if models are loaded before attempting prediction
+        # Check if models are loaded
         if not TF_AVAILABLE:
             return jsonify({
-                "error": "TensorFlow is not available. Backend initialization failed.",
+                "error": "TensorFlow is not available",
                 "type": "InitializationError"
             }), 500
-        
+ 
         if model_vgg is None and model_effnet is None:
             return jsonify({
-                "error": "No models loaded. Check backend logs for model loading errors.",
+                "error": "No models loaded. Check backend logs.",
                 "type": "ModelLoadError"
             }), 500
-        
+ 
+        # Read image
         image_bytes = file.read()
-        
-        # Run ensemble with CORRECT preprocessing for each model
+        logger.info(f"📷 Processing image: {file.filename} ({len(image_bytes)} bytes)")
+ 
+        # Run ensemble
         probs = run_ensemble(image_bytes)
-
-        # Build result
+ 
+        # Build prediction result
         pred_idx = int(np.argmax(probs))
         pred_label = CLASS_NAMES[pred_idx]
         confidence = float(probs[pred_idx])
-
+ 
         probabilities = {CLASS_NAMES[i]: float(probs[i]) for i in range(len(CLASS_NAMES))}
-
-        # Log to MongoDB (non-blocking)
+ 
+        # Log to MongoDB
         client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
         log_to_mongodb(pred_label, probabilities, file.filename, client_ip)
-
-        return jsonify({
+ 
+        # Return result
+        result = {
             "prediction": pred_label,
             "label": CLASS_LABELS[pred_label],
             "confidence": round(confidence, 4),
             "probabilities": {k: round(v, 4) for k, v in probabilities.items()},
             "suggestion": SUGGESTIONS[pred_label],
             "modelVersion": MODEL_VERSION,
-        })
-
+        }
+ 
+        logger.info(f"✅ Prediction: {pred_label} (confidence: {confidence:.2%})")
+        return jsonify(result)
+ 
     except Exception as e:
+        logger.error(f"❌ Prediction error: {e}")
         import traceback
-        logger.error(f"Prediction error: {e}")
         logger.error(traceback.format_exc())
-        
-        # Return proper JSON error, not HTML
+ 
         return jsonify({
             "error": f"Prediction failed: {str(e)}",
             "type": type(e).__name__,
-            "details": str(e)
         }), 500
-
-
+ 
+# ─── Error Handlers ───────────────────────────────────────────────────────────
+ 
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Not found"}), 404
+ 
+@app.errorhandler(500)
+def internal_error(e):
+    logger.error(f"Internal error: {e}")
+    return jsonify({"error": "Internal server error"}), 500
+ 
+# ─── Main ─────────────────────────────────────────────────────────────────────
+ 
 if __name__ == "__main__":
+    logger.info("=" * 60)
+    logger.info("🧠 NeuroSight AI - Flask Backend")
+    logger.info("=" * 60)
+ 
+    # Load models
     load_models()
-    port = int(os.getenv("PORT", 5000))
+ 
+    # Start Flask
+    port = int(os.getenv("FLASK_PORT", 5000))
     debug = os.getenv("FLASK_ENV", "production") == "development"
-    logger.info(f"🧠 NeuroSight AI backend starting on port {port}...")
-    logger.info(f"📊 TensorFlow available: {TF_AVAILABLE}")
-    logger.info(f"📊 VGG16: {VGG16_IMG_SIZE} input, / 255.0 normalization")
-    logger.info(f"📊 EfficientNetB0: {EFFICIENTNET_IMG_SIZE} input, preprocess_input()")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+ 
+    logger.info(f"🚀 Starting Flask on port {port} (debug={debug})")
+    logger.info(f"📊 TensorFlow: {TF_AVAILABLE}")
+    logger.info(f"📊 VGG16 input: {VGG16_IMG_SIZE}, /255.0 norm")
+    logger.info(f"📊 EfficientNetB0 input: {EFFICIENTNET_IMG_SIZE}, preprocess_input")
+    logger.info("=" * 60)
+ 
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=debug,
+        use_reloader=False  # Disable reloader in subprocess
+    )
+ 
