@@ -1,24 +1,33 @@
 {
-  "name": "neurosight-ai",
+  "name": "neurosight-ai-backend",
   "version": "1.0.0",
-  "description": "**Advanced MRI-Based Brain Tumor Detection**   Ensemble of VGG16 & EfficientNetB0",
-  "main": "index.js",
+  "description": "Brain Tumor Detection API - Node Express + Python Flask Ensemble",
+  "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node server.js"
   },
-  "keywords": [],
+  "keywords": [
+    "brain-tumor",
+    "mri",
+    "deep-learning",
+    "tensorflow",
+    "ensemble-model",
+    "medical-ai"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.6.2", 
-    "concurrently": "^8.2.2"
+    "mongoose": "^9.6.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
   }
 }
