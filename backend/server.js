@@ -210,8 +210,7 @@ async function initializeBackend() {
   }
 }
  
-// Start initialization immediately
-initializeBackend()
+
  
 // ──────────────────────────────────────────────────────────────────────────────
 // MONGODB CONNECTION
@@ -474,6 +473,8 @@ app.listen(NODE_PORT, () => {
   console.log(``)
   console.log(`🔗 Frontend: https://neurosight-ai.vercel.app`)
   console.log(``)
+
+ initializeBackend()
 })
  
 // Handle process termination
