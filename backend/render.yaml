@@ -3,27 +3,29 @@ services:
     name: neurosight-ai
     runtime: node
     plan: free
-    env: node
     region: oregon
-    buildCommand: >
-      npm install &&
-      pip install --upgrade pip &&
-      pip install -r requirements.txt
+    pythonVersion: 3.11  # CRITICAL: Pin to 3.11 for TensorFlow 2.15.1 compatibility
+    
+    buildCommand: npm install && pip install --upgrade pip && pip install -r requirements.txt
     startCommand: node server.js
+    
     envVars:
-       - key: MONGO_URI
+      - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
         sync: false
-       - key: CORS_ORIGINS
+      - key: CORS_ORIGINS
         value: https://neurosight-ai.vercel.app
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "3000"
+      - key: FLASK_PORT
+        value: "5000"
       - key: FLASK_ENV
-        value: "production
-
-
-
-
+        value: production
+      - key: MODELS_DIR
+        value: /var/tmp/models  # Use /var/tmp instead of ephemeral app directory
+      - key: MONGODB_DB
+        value: neurosight
+ 
