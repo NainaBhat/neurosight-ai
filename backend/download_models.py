@@ -48,7 +48,7 @@ else:
             f"https://drive.google.com/uc?id={VGG16_ID}",
             vgg16_path,
             quiet=False,
-            timeout=300  # 5 minute timeout
+            fuzzy=True  
         )
         if os.path.exists(vgg16_path):
             file_size_mb = os.path.getsize(vgg16_path) / (1024 * 1024)
@@ -83,7 +83,7 @@ else:
             f"https://drive.google.com/uc?id={EFFNET_ID}",
             effnet_zip,
             quiet=False,
-            timeout=300  # 5 minute timeout
+            fuzzy=True  
         )
  
         if not os.path.exists(effnet_zip):
