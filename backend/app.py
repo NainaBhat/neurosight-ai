@@ -77,7 +77,8 @@ def load_models():
         import tensorflow as tf
         
         # VGG16 - Load from .keras file
-        vgg_path = os.getenv("VGG16_MODEL_PATH", "models/brain_tumor_detection_vgg16.keras")
+        models_dir = os.getenv("MODELS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"))
+       vgg_path = os.getenv("VGG16_MODEL_PATH", os.path.join(models_dir, "brain_tumor_detection_vgg16.keras"))
         
         if os.path.exists(vgg_path):
             logger.info(f"Loading VGG16 from {vgg_path}...")
@@ -93,7 +94,7 @@ def load_models():
             model_vgg = None
 
         # EfficientNetB0 - Load from FOLDER (saved_model format)
-        effnet_path = os.getenv("EFFNET_MODEL_PATH", "models/brain_tumor_detection_efficientnetb0")
+        effnet_path = os.getenv("EFFNET_MODEL_PATH", os.path.join(models_dir, "brain_tumor_detection_efficientnetb0"))
         
         if os.path.exists(effnet_path):
             logger.info(f"Loading EfficientNetB0 from {effnet_path}...")
