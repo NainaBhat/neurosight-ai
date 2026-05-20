@@ -138,7 +138,7 @@ export default function DetectionSection() {
     formData.append('file', file)
 
     try {
-      const res = await fetch(`${API_URL}/predict`, {
+      const res = await fetch(`${API_URL}/api/predict`, {
         method: 'POST',
         body: formData,
       })
