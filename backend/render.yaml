@@ -2,13 +2,12 @@ services:
   - type: web
     name: neurosight-ai
     runtime: node
-    plan: free
     region: oregon
- 
-    
+    plan: free
+    pythonVersion: 3.11
+    rootDir: .
     buildCommand: npm install && pip install --upgrade pip && pip install -r requirements.txt
     startCommand: node server.js
-    
     envVars:
       - key: MONGO_URI
         sync: false
@@ -25,7 +24,6 @@ services:
       - key: FLASK_ENV
         value: production
       - key: MODELS_DIR
-        value: /var/tmp/models  # Use /var/tmp instead of ephemeral app directory
+        value: /var/tmp/models
       - key: MONGODB_DB
         value: neurosight
- 
