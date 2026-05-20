@@ -3,30 +3,27 @@ services:
     name: neurosight-ai
     runtime: node
     plan: free
+    env: node
     region: oregon
-    pythonVersion: 3.11
-    
-    buildCommand: npm install && pip install -r requirements.txt
+    buildCommand: >
+      npm install &&
+      pip install --upgrade pip &&
+      pip install -r requirements.txt
     startCommand: node server.js
-    
     envVars:
-      - key: MONGO_URI
+       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: CORS_ORIGINS
+       - key: CORS_ORIGINS
         value: https://neurosight-ai.vercel.app
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "3000"
-      - key: FLASK_PORT
-        value: "5000"
       - key: FLASK_ENV
-        value: production
-      - key: VITE_API_URL
-        value: https://neurosight-ai-gj77.onrender.com
- 
+        value: "production
+
 
 
 
