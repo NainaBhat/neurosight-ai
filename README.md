@@ -114,13 +114,6 @@ The app works with **mock predictions** if models are missing (for UI testing).
 
 ---
 
-## 🎬 Adding Your About Video
-
-Place your video at:
-```
-frontend/public/videos/brain-tumor-explainer.mp4
-
-
 ## ☁️ Deployment
 
 ### Deploy Backend to Render
@@ -135,7 +128,6 @@ frontend/public/videos/brain-tumor-explainer.mp4
    - `MONGODB_URI` = your MongoDB Atlas URI
    - `CORS_ORIGINS` = your Vercel frontend URL
 
-**Note:** Free Render instances sleep after 15 min. The first prediction after sleep takes ~30s.
 
 ### Deploy Frontend to Vercel
 
