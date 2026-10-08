@@ -1,7 +1,7 @@
 # 🧠 NeuroSight AI
 
 **Advanced MRI-Based Brain Tumor Detection**  
- Ensemble of VGG16 & EfficientNetB0
+
 
 > ⚠️ **Research Prototype Only.** Not a medical device. Not a substitute for professional diagnosis.
 
